@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AgentTerminal — telemetry spike</title>
+<style>
+  :root {
+    --bg: #101216; --panel: #181b21; --text: #d6dae2; --dim: #7c8494;
+    --ok: #4cc38a; --warn: #e5a13c; --hot: #e5544c; --accent: #6ca0f0;
+    --border: #262a33;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+         font: 14px/1.5 "Cascadia Code", Consolas, monospace; }
+  h1 { font-size: 15px; font-weight: 600; color: var(--dim); margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .model { font-weight: 600; color: var(--accent); }
+  .src { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .cwd { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+  .barwrap { margin-top: 10px; }
+  .barlabel { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+  .bar { height: 8px; background: #0c0e11; border-radius: 4px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 4px; background: var(--ok); transition: width .4s; }
+  .fill.warn { background: var(--warn); } .fill.hot { background: var(--hot); }
+  .stats { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--dim); flex-wrap: wrap; }
+  .stats b { color: var(--text); font-weight: 600; }
+  .tag { font-size: 10px; border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; color: var(--dim); }
+  .stale { opacity: .45; }
+</style>
+</head>
+<body>
+<h1>AgentTerminal — telemetry spike <span id="conn" class="tag">connecting…</span></h1>
+<div class="grid" id="grid"></div>
+<script>
+const sessions = new Map();
+const fmt = (n) => n == null ? "—" : n >= 1e6 ? (n/1e6).toFixed(2)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"k" : String(n);
+
+// resetsAt is unix seconds (claude) or an ISO string (codex) — handle both.
+function fmtReset(resetsAt) {
+  if (resetsAt == null) return "";
+  const t = typeof resetsAt === "number" ? resetsAt * 1000 : Date.parse(resetsAt);
+  if (!Number.isFinite(t)) return "";
+  const mins = Math.round((t - Date.now()) / 60000);
+  if (mins <= 0) return " · resets soon";
+  if (mins < 60) return ` · resets in ${mins}m`;
+  if (mins < 48 * 60) return ` · resets in ${Math.round(mins / 60)}h`;
+  return ` · resets in ${Math.round(mins / 1440)}d`;
+}
+
+function render() {
+  const grid = document.getElementById("grid");
+  const now = Date.now();
+  const recs = [...sessions.values()].sort((a,b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
+  grid.innerHTML = recs.map(r => {
+    const pct = r.contextPercent ?? (r.contextUsed != null && r.contextWindow ? Math.min(100, 100 * r.contextUsed / r.contextWindow) : null);
+    const cls = pct == null ? "" : pct > 85 ? "hot" : pct > 60 ? "warn" : "";
+    const stale = r.updatedAt && (now - Date.parse(r.updatedAt)) > 10 * 60e3;
+    const limits = r.rateLimits ?? [];
+    return `<div class="card ${stale ? "stale" : ""}">
+      <div class="head">
+        <span class="model">${r.model ?? "unknown model"}${r.effort ? ` <span class="tag">${r.effort}</span>` : ""}${r.subagent ? ' <span class="tag">subagent</span>' : ""}</span>
+        <span class="src">${r.source}</span>
+      </div>
+      <div class="cwd">${r.sessionName ? r.sessionName + " — " : ""}${r.cwd ?? ""}</div>
+      <div class="barwrap">
+        <div class="barlabel"><span>context <span class="tag">${r.contextLabel ?? "unknown"}</span></span>
+          <span>${pct == null ? "unknown" : pct.toFixed(0) + "%"} · ${fmt(r.contextUsed)} / ${fmt(r.contextWindow)}</span></div>
+        <div class="bar"><div class="fill ${cls}" style="width:${pct ?? 0}%"></div></div>
+      </div>
+      ${limits.map(rl => `<div class="barwrap">
+        <div class="barlabel"><span>plan · ${rl.label ?? "window"}</span>
+          <span>${rl.usedPercent != null ? rl.usedPercent.toFixed(0) + "%" : "unknown"}${fmtReset(rl.resetsAt)}</span></div>
+        <div class="bar"><div class="fill ${rl.usedPercent > 85 ? "hot" : rl.usedPercent > 60 ? "warn" : ""}" style="width:${rl.usedPercent ?? 0}%"></div></div>
+      </div>`).join("")}
+      <div class="stats">
+        <span>in <b>${fmt(r.tokens?.input)}</b></span>
+        <span>out <b>${fmt(r.tokens?.output)}</b></span>
+        ${r.tokens?.cachedInput != null ? `<span>cached <b>${fmt(r.tokens.cachedInput)}</b></span>` : ""}
+        ${r.costUsd != null ? `<span>cost <b>$${r.costUsd.toFixed(2)}</b></span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+const es = new EventSource("/events");
+es.onopen = () => document.getElementById("conn").textContent = "live";
+es.onerror = () => document.getElementById("conn").textContent = "reconnecting…";
+es.onmessage = (ev) => {
+  const rec = JSON.parse(ev.data);
+  sessions.set(rec.sessionId, rec);
+  render();
+};
+setInterval(render, 30000); // refresh staleness
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+{
+  "name": "nexo",
+  "productName": "Nexo",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "A local-first terminal for Codex and Claude",
+  "author": "joaobzrra",
+  "repository": "https://github.com/joaobzrra/nexo-releases",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "selftest": "electron . --selftest",
+    "ui:selftest": "electron . --ui-selftest",
+    "telemetry:test": "node --test ../spike/collector/*.test.mjs",
+    "integration:test": "node --test test/*.test.js",
+    "icon:render": "electron scripts/render-svg-icon.js",
+    "icon:build": "npm run icon:render && node scripts/build-icon.mjs",
+    "dist": "npm run icon:build && electron-builder --win nsis --x64 --publish never",
+    "verify:package": "node scripts/verify-package.mjs",
+    "postinstall": "node scripts/verify-node-pty-prebuild.mjs",
+    "perf:dom": "electron . --perf-selftest=dom",
+    "perf:webgl": "electron . --perf-selftest=webgl"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^5.5.0",
+    "electron-updater": "6.8.9",
+    "node-pty": "1.1.0"
+  },
+  "devDependencies": {
+    "@electron/asar": "4.2.1",
+    "@electron/packager": "^20.3.0",
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3",
+    "png-to-ico": "3.0.2"
+  },
+  "build": {
+    "appId": "com.joaobzrra.nexo",
+    "productName": "Nexo",
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "directories": {
+      "output": "dist-packaged",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "setup-preload.js",
+      "telemetry-hook.js",
+      "telemetry-integration.js",
+      "updater.js",
+      "build/icon.png",
+      "renderer/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!**/*.map",
+      "!**/test{,s}/**/*",
+      "!**/*.test.*",
+      "!**/captured-*"
+    ],
+    "extraResources": [
+      {
+        "from": "../spike/collector",
+        "to": "telemetry/collector",
+        "filter": [
+          "*.mjs",
+          "*.cmd",
+          "!*.test.mjs",
+          "!captured-*"
+        ]
+      },
+      {
+        "from": "../spike/viewer/index.html",
+        "to": "telemetry/viewer/index.html"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "brand/nexo.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Nexo-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nexo",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "joaobzrra",
+        "repo": "nexo-releases",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

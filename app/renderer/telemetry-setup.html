@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self';">
+<title>Local telemetry — Nexo</title>
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/400.css">
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/500.css">
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/600.css">
+<link rel="stylesheet" href="telemetry-setup.css">
+</head>
+<body>
+  <main class="receipt">
+    <header>
+      <span class="mark" aria-hidden="true">N</span>
+      <div><span class="eyebrow">FIRST-RUN LOCAL RECEIPT</span><h1>Enable local telemetry</h1></div>
+      <span class="local"><i></i> stays on this PC</span>
+    </header>
+
+    <p class="intro">Nexo can show your own Codex and Claude context, limits, model, cost, and working state. It reads local CLI data and accepts authenticated loopback events only.</p>
+
+    <section class="boundary" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">What changes</h2>
+      <div class="file"><span>CODEX</span><code id="codex-file">Detecting configuration…</code></div>
+      <div class="file"><span>CLAUDE</span><code id="claude-file">Detecting configuration…</code></div>
+      <p>Timestamped backups are created first. Existing hooks are preserved and delegated—not discarded.</p>
+    </section>
+
+    <section class="facts" aria-label="Privacy boundaries">
+      <div><b>Stored for 30 days</b><span>Normalized usage and session state</span></div>
+      <div><b>Never copied</b><span>Prompts, terminal text, transcripts, tool input or output</span></div>
+      <div><b>Never uploaded</b><span>Telemetry, paths, histories, credentials, or PC details</span></div>
+    </section>
+
+    <p class="network-note">Separate from telemetry, Nexo checks the public GitHub Releases feed for updates. It downloads an update only after you click the update indicator.</p>
+
+    <div id="message" role="status" aria-live="polite"></div>
+    <footer>
+      <button id="secondary">Not now</button>
+      <button id="primary">Enable local telemetry <span>→</span></button>
+    </footer>
+  </main>
+  <script src="telemetry-setup.js"></script>
+</body>
+</html>

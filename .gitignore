@@ -1,0 +1,13 @@
+node_modules/
+.npm-cache/
+dist/
+*.log
+.env
+.env.*
+spike/feed/
+spike/collector/captured-claude-payloads.jsonl
+app/dist-packaged/
+app/codex-selftest.log
+.claude/scheduled_tasks.lock
+app/ui-selftest.log
+tools/brand/nexo.png

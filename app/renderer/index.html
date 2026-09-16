@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self';img-src 'self';style-src 'self' 'unsafe-inline';script-src 'self';connect-src 'self' http://127.0.0.1:4317;">
+<title>Nexo</title>
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/400.css">
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/500.css">
+<link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/600.css">
+<link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="strip">
+  <nav id="strip-menu" aria-label="Destinations">
+    <button class="menu-item active" id="menu-terminal" title="Terminal"><svg viewBox="0 0 20 20"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="m6 8 2.5 2L6 12M10.5 12H14"/></svg></button>
+    <button class="menu-item" title="Constellation — coming later" disabled><svg viewBox="0 0 20 20"><circle cx="5" cy="14.5" r="1.6"/><circle cx="10" cy="4.5" r="1.6"/><circle cx="15.5" cy="12" r="1.6"/><path d="M6 13 9.2 6M10.9 5.8 14.6 10.7M6.6 14.4l7.2-1.9"/></svg></button>
+    <button class="menu-item" title="Library — coming later" disabled><svg viewBox="0 0 20 20"><path d="M10 5.2C8.6 4 6.2 3.7 4 4.2v11.2c2.2-.5 4.6-.2 6 1 1.4-1.2 3.8-1.5 6-1V4.2c-2.2-.5-4.6-.2-6 1z"/><path d="M10 5.2v11.2"/></svg></button>
+    <button class="menu-item" id="appearance-btn" title="Appearance — themes and opacity" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 20 20"><path d="M10 3a7 7 0 0 0 0 14c1.2 0 1.9-.9 1.9-1.8 0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.3 0-.9.8-1.5 1.8-1.5H14a3 3 0 0 0 3-3C17 5.2 13.9 3 10 3z"/><circle cx="6.8" cy="8" r="0.9"/><circle cx="10" cy="6.2" r="0.9"/><circle cx="13.2" cy="8" r="0.9"/></svg></button>
+  </nav>
+  <div id="appearance-pop" class="hidden" role="menu" aria-label="Appearance">
+    <div class="ap-title">Theme</div>
+    <div id="appearance-themes"></div>
+    <div class="ap-title">Opacity <span id="appearance-opacity-value"></span></div>
+    <input id="appearance-opacity" type="range" min="0" max="100" step="1" aria-label="Window opacity">
+    <div id="appearance-version"></div>
+  </div>
+  <div id="tab-strip" role="tablist" aria-label="Sessions"></div>
+  <button id="new-tab" title="New session (Ctrl+Shift+T)">+</button>
+  <div id="strip-gap"></div>
+  <button id="update-status" class="hidden" title="Nexo update available" aria-label="Nexo update available">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5"/><path d="M4 14.5v1.5h12v-1.5"/></svg>
+    <span id="update-label">Update</span>
+  </button>
+  <div id="operator-mark" title="Local Windows user">ME</div>
+</header>
+<div id="workspace">
+  <aside id="ledger" aria-label="Sessions">
+    <header>
+      <span class="label">Sessions</span>
+      <span class="grow"></span>
+      <button id="new-pane" title="New session (Ctrl+Shift+T)">+ New</button>
+      <button id="ledger-toggle" title="Collapse sessions (Ctrl+Shift+B)" aria-expanded="true">«</button>
+    </header>
+    <div id="ledger-rows"></div>
+    <footer>
+      <span>local relay</span>
+      <span id="link-state" class="dim"><i></i> offline</span>
+    </footer>
+  </aside>
+  <section id="active-workspace" aria-label="Active terminal workspace">
+    <header id="workspace-head">
+      <div>
+        <div class="workspace-title-line"><h1 id="workspace-title">powershell</h1><span id="workspace-id">#LOCAL-01</span></div>
+        <div id="workspace-meta">local shell</div>
+      </div>
+      <div class="workspace-actions">
+        <button id="workspace-split" title="Split right (Ctrl+Shift+D)"><svg viewBox="0 0 20 20"><rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M10 3.5v13"/></svg><span>Split</span></button>
+        <button id="workspace-split-v" title="Split down (Ctrl+Shift+E)"><svg viewBox="0 0 20 20"><rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 10h14"/></svg><span class="sr-only">Split down</span></button>
+        <button id="workspace-search" title="Search scrollback (Ctrl+Shift+F)"><svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5"/><path d="m12.2 12.2 4.3 4.3"/></svg><span class="sr-only">Search scrollback</span></button>
+      </div>
+    </header>
+    <div id="search-bar" class="hidden">
+      <input id="search-input" placeholder="Search scrollback…" spellcheck="false" autocomplete="off">
+      <button id="search-prev" title="Previous (Shift+Enter)">‹</button>
+      <button id="search-next" title="Next (Enter)">›</button>
+      <button id="search-close" title="Close (Esc)">×</button>
+    </div>
+    <main id="pane-field" aria-label="Terminal panes"></main>
+    <footer id="pool">
+      <span class="pool-label">usage</span>
+      <span id="pool-groups" style="display:flex;min-width:0;flex:1"></span>
+      <span class="pool-right">
+        <span id="relay-state" class="dim"><i></i> relay offline</span>
+        <span class="hints">Ctrl Shift T / new · Ctrl Shift D / split · Ctrl Shift B / sessions</span>
+      </span>
+    </footer>
+  </section>
+</div>
+<div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div id="palette-panel">
+    <input id="palette-input" placeholder="Type a command…" spellcheck="false" autocomplete="off">
+    <div id="palette-list"></div>
+  </div>
+</div>
+<script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+<script src="../node_modules/@xterm/addon-search/lib/addon-search.js"></script>
+<script src="../node_modules/@xterm/addon-webgl/lib/addon-webgl.js"></script>
+<script src="themes.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>

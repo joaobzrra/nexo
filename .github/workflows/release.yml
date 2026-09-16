@@ -1,0 +1,104 @@
+name: Release Nexo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexo-release
+  cancel-in-progress: false
+
+jobs:
+  build-test-release:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out private source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install exact dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Assign monotonic release version
+        working-directory: app
+        shell: pwsh
+        run: npm version "0.2.${{ github.run_number }}" --no-git-tag-version
+
+      - name: Test telemetry, hook restoration, and updater consent
+        working-directory: app
+        shell: pwsh
+        run: |
+          npm run integration:test
+          npm run telemetry:test
+
+      - name: Check shipped JavaScript syntax
+        working-directory: app
+        shell: pwsh
+        run: |
+          node --check main.js
+          node --check preload.js
+          node --check setup-preload.js
+          node --check telemetry-hook.js
+          node --check telemetry-integration.js
+          node --check updater.js
+          node --check renderer/renderer.js
+          node --check renderer/telemetry-setup.js
+
+      - name: Test Electron and native PTY ABI
+        working-directory: app
+        shell: pwsh
+        run: |
+          npm run selftest
+          npm run ui:selftest
+
+      - name: Build unsigned per-user installer
+        working-directory: app
+        run: npm run dist
+
+      - name: Test packaged Electron and native PTY ABI
+        working-directory: app
+        shell: pwsh
+        run: |
+          & ".\dist-packaged\win-unpacked\Nexo.exe" --selftest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify public artifact privacy allowlist
+        working-directory: app
+        run: npm run verify:package
+
+      - name: Publish binary-only release and retain latest ten
+        working-directory: app
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.NEXO_RELEASE_TOKEN }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $setup = "dist-packaged/Nexo-Setup-$version-x64.exe"
+          $blockmap = "$setup.blockmap"
+          $latest = "dist-packaged/latest.yml"
+          foreach ($file in @($setup, $blockmap, $latest)) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "Missing release artifact: $file" }
+          }
+          gh release create "v$version" `
+            --repo joaobzrra/nexo-releases `
+            --title "Nexo $version" `
+            --notes "Unsigned Windows x64 beta. Local telemetry remains opt-in and local-only." `
+            "$setup#Nexo Setup $version (Windows x64)" `
+            "$blockmap#Nexo update blockmap" `
+            "$latest#Nexo update manifest"
+          $oldTags = @(gh api repos/joaobzrra/nexo-releases/releases --paginate --jq '.[].tag_name') | Select-Object -Skip 10
+          foreach ($tag in $oldTags) {
+            gh release delete $tag --repo joaobzrra/nexo-releases --cleanup-tag --yes
+          }

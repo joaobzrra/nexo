@@ -1,0 +1,1306 @@
+/* AgentTerminal — approved synthesis chrome (2026-08-15).
+   One-bar layout: title strip = menu icons + session tabs + operator mark.
+   Below: messenger rail (collapsible) + terminal workspace + usage pool.
+   Visual language: glass chrome over a faint cyan/rust atmosphere, mineral
+   cyan signal, provenance tints (claude rust / codex teal). Terminal wells
+   stay near-solid; nothing animates pane geometry. */
+
+:root {
+  --void: #0a0d12;
+  --shell: #10141b;
+  --well: #0c1013;
+  --raised: #151c21;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-soft: rgba(255, 255, 255, 0.05);
+  --text: #dce3e7;
+  --strong: #edf2f4;
+  --muted: #849097;
+  --faint: #66737a;
+  --signal: #53c7cf;
+  --claude: #c8825c;
+  --codex: #58b9a6;
+  --warn: #d7ae69;
+  --danger: #d86f68;
+  --green: #5aa98b;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --ui: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --display: var(--ui);
+
+  /* Material tokens. Every theme block overrides only tokens — never
+     geometry — so switching themes can never resize a ConPTY. */
+  --base-rgb: 10, 13, 18;      /* body tint over acrylic */
+  --base-alpha: 0.88;          /* user opacity control moves this */
+  --atmo:
+    radial-gradient(900px 600px at 10% -10%, rgba(83, 199, 207, 0.06), transparent 62%),
+    radial-gradient(1100px 700px at 106% 116%, rgba(200, 130, 92, 0.05), transparent 62%);
+  --glass-strip: rgba(16, 20, 27, 0.5);
+  --glass-rail: rgba(15, 19, 26, 0.4);
+  --glass-work: rgba(11, 15, 18, 0.2);
+  --glass-pane: rgba(12, 16, 19, 0.3);
+  --glass-pane-head: rgba(14, 19, 22, 0.5);
+  --glass-instrument: rgba(13, 18, 21, 0.5);
+  --glass-float: rgba(16, 21, 26, 0.92);
+  --tab-active: rgba(12, 16, 19, 0.92);
+  --overlay: rgba(5, 8, 10, 0.35);
+  --well-shade: rgba(0, 0, 0, 0.9);
+
+  /* Derived surfaces track the theme's text color so hovers work on light
+     themes without their own tokens. */
+  --hover: color-mix(in srgb, var(--strong) 4%, transparent);
+  --hover-strong: color-mix(in srgb, var(--strong) 8%, transparent);
+  --trace-bg: #263038;
+  --scroll-thumb: #263038;
+  --scroll-thumb-hover: #2a3342;
+  --dot: #465158;
+  --soft: #aeb8bd;
+  --pct-text: #8d999f;
+  --ava-bg: #1a2228;
+  --ava-fg: #9aa6ac;
+  --ava-claude-bg: #33251f;
+  --ava-claude-fg: #e0aa85;
+  --ava-codex-bg: #17302c;
+  --ava-codex-fg: #7bcdb6;
+  --claude-strip-bg: rgba(200, 130, 92, 0.07);
+  --claude-strip-line: rgba(200, 130, 92, 0.16);
+  --claude-strip-text: #d9b39c;
+  --codex-strip-bg: rgba(88, 185, 166, 0.06);
+  --codex-strip-line: rgba(88, 185, 166, 0.14);
+  --codex-strip-text: #9ed4c5;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font: 13px/1.5 var(--ui);
+}
+/* One material, Warp-style: the window carries Windows acrylic (main.js);
+   the body supplies a strong, deterministic dark tint so Windows theme and
+   wallpaper differences cannot turn the terminal wall light. Acrylic remains
+   visible as a subtle material instead of defining the app's base color. */
+html { background: transparent; }
+body { background: rgba(var(--base-rgb), var(--base-alpha)); }
+button { font: inherit; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Atmosphere: two static tone fields so the glass chrome has something to be
+   glass against. Terminal text never sits on them directly. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: var(--atmo);
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ------------------------------------------------------- title strip ---- */
+#strip {
+  position: relative;
+  z-index: 20;
+  height: 42px;
+  min-height: 42px;
+  display: flex;
+  align-items: stretch;
+  padding-right: 148px; /* native window-controls overlay */
+  background: var(--glass-strip);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+#strip button { -webkit-app-region: no-drag; }
+
+#strip-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  border-right: 1px solid var(--line-soft);
+}
+.menu-item {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+.menu-item svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.menu-item:hover { color: var(--text); background: var(--hover); }
+.menu-item.active { color: var(--signal); background: color-mix(in srgb, var(--signal) 8%, transparent); }
+.menu-item[disabled] { opacity: 0.45; cursor: default; }
+.menu-item[disabled]:hover { color: var(--faint); background: transparent; }
+.menu-item:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+
+/* Appearance popover: anchored under the strip menu, themed by tokens so it
+   previews correctly as themes are clicked. */
+#appearance-pop {
+  position: absolute;
+  z-index: 60;
+  top: 44px;
+  left: 8px;
+  width: 216px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--glass-float);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.35);
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+#appearance-pop.hidden { display: none; }
+#appearance-pop .ap-title {
+  padding: 2px 4px 6px;
+  color: var(--faint);
+  font: 600 8.5px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+#appearance-pop .ap-title span { float: right; letter-spacing: 0; color: var(--muted); }
+.ap-theme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: 500 11px/1 var(--ui);
+  text-align: left;
+  cursor: pointer;
+}
+.ap-theme:hover { background: var(--hover); }
+.ap-theme.current { background: color-mix(in srgb, var(--signal) 10%, transparent); color: var(--strong); }
+.ap-theme .sw {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.ap-theme:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+#appearance-themes { margin-bottom: 8px; }
+#appearance-opacity {
+  width: 100%;
+  margin: 2px 0 4px;
+  accent-color: var(--signal);
+}
+#appearance-version {
+  margin-top: 8px;
+  padding: 6px 4px 0;
+  border-top: 1px solid var(--line-soft);
+  color: var(--faint);
+  font: 500 8.5px/1 var(--mono);
+}
+
+#tab-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding-left: 6px;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--faint);
+  white-space: nowrap;
+  cursor: pointer;
+  max-width: 220px;
+  min-width: 0;
+}
+.tab .tick {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+  flex: none;
+}
+.tab.claude .tick { background: var(--claude); }
+.tab.codex .tick { background: var(--codex); }
+.tab .name {
+  font: 500 11px/1 var(--mono);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab .chip {
+  font: 500 8.5px/1.7 var(--mono);
+  color: var(--faint);
+  border: 1px solid var(--line);
+  padding: 0 5px;
+  border-radius: 2px;
+  flex: none;
+}
+.tab:hover { background: color-mix(in srgb, var(--strong) 3%, transparent); }
+.tab.active { background: var(--tab-active); }
+.tab.active .name { color: var(--strong); }
+.tab .tclose {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  margin-right: -4px;
+  border-radius: 3px;
+  color: var(--faint);
+  font: 400 12px/1 var(--mono);
+  opacity: 0;
+  flex: none;
+}
+.tab:hover .tclose, .tab.active .tclose { opacity: 1; }
+.tab .tclose:hover { color: var(--text); background: var(--hover-strong); }
+/* mini context bar living in the tab's bottom edge */
+.tab .mini {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--strong) 7%, transparent);
+}
+.tab .mini i { position: absolute; inset: 0 auto 0 0; display: block; }
+.tab.claude .mini i { background: var(--claude); }
+.tab.codex .mini i { background: var(--codex); }
+.tab .mini.off { display: none; }
+/* the seam docks the active tab to its terminal */
+.tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--signal);
+}
+.tab:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+
+/* Turn complete on a tab the user is not watching. The static tick colour is
+   the cue that survives reduced motion; the blink itself is opt-in below. */
+.tab.attention .tick { background: var(--signal); }
+.tab.attention .name { color: var(--soft); }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* --attn-delay is set per tab in renderTabs so a re-render keeps the phase. */
+  .tab.attention {
+    animation: tab-attention 2.8s ease-in-out infinite;
+    animation-delay: var(--attn-delay, 0ms);
+  }
+  /* Box-shadow only — animating the background would fight .tab.active. */
+  @keyframes tab-attention {
+    0%, 100% { box-shadow: inset 0 0 0 1px transparent; }
+    50% {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 40%, transparent),
+                  0 0 14px -5px color-mix(in srgb, var(--signal) 60%, transparent);
+    }
+  }
+  .tab.attention .tick {
+    animation: tab-attention-tick 2.8s ease-in-out infinite;
+    animation-delay: var(--attn-delay, 0ms);
+  }
+  @keyframes tab-attention-tick {
+    0%, 100% { opacity: 0.35; box-shadow: none; }
+    50% { opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--signal) 70%, transparent); }
+  }
+
+  .tab.active.streaming::after { animation: seam 2.6s ease-in-out infinite; }
+  @keyframes seam {
+    0%, 100% { opacity: 0.55; box-shadow: none; }
+    50% { opacity: 1; box-shadow: 0 0 10px color-mix(in srgb, var(--signal) 50%, transparent); }
+  }
+}
+
+#new-tab {
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  font: 400 14px/1 var(--mono);
+  cursor: pointer;
+}
+#new-tab:hover { color: var(--text); background: var(--hover); }
+#new-tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+
+#strip-gap { flex: 1; }
+
+#update-status {
+  align-self: center;
+  height: 26px;
+  margin-right: 7px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--signal) 28%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--signal) 8%, transparent);
+  color: var(--signal);
+  font: 500 9.5px/1 var(--mono);
+  cursor: pointer;
+}
+#update-status.hidden { display: none; }
+#update-status:hover { color: var(--strong); background: color-mix(in srgb, var(--signal) 14%, transparent); }
+#update-status:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+#update-status:disabled { cursor: wait; opacity: 0.72; }
+#update-status svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#update-status.ready {
+  border-color: color-mix(in srgb, var(--green) 42%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--green);
+}
+
+#operator-mark {
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--muted);
+  font: 600 9px/1 var(--mono);
+}
+
+/* --------------------------------------------------------- workspace ---- */
+#workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* --------------------------------------------------- messenger rail ---- */
+#ledger {
+  width: 212px;
+  min-width: 212px;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-rail);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--line);
+}
+#ledger > header {
+  height: 34px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 12px;
+  color: var(--faint);
+  font-size: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+#ledger > header .grow { flex: 1; }
+#new-pane, #ledger-toggle {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+#ledger-toggle { font: 400 12px/1 var(--mono); }
+#new-pane:hover, #ledger-toggle:hover { color: var(--text); }
+#new-pane:focus-visible, #ledger-toggle:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+#ledger-rows { flex: 1; min-height: 0; overflow-y: auto; }
+#ledger-rows::-webkit-scrollbar { width: 6px; }
+#ledger-rows::-webkit-scrollbar-thumb { background: var(--scroll-thumb); }
+
+.mrow {
+  display: flex;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mrow:hover { background: color-mix(in srgb, var(--strong) 2%, transparent); }
+.mrow.focused { background: var(--raised); box-shadow: inset 2px 0 0 var(--signal); }
+.mrow.stale { opacity: 0.55; }
+.mrow:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+.ava {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 600 10px/1 var(--ui);
+  background: var(--ava-bg);
+  color: var(--ava-fg);
+  border: 1px solid var(--line);
+}
+.mrow.claude .ava { background: var(--ava-claude-bg); color: var(--ava-claude-fg); }
+.mrow.codex .ava { background: var(--ava-codex-bg); color: var(--ava-codex-fg); }
+.mbody { flex: 1; min-width: 0; }
+.ml1 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.mname {
+  font-family: var(--display);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mrow.focused .mname { color: var(--strong); }
+.mtime { font: 8.5px/1 var(--mono); color: var(--faint); flex: none; }
+.mprev {
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mbar {
+  position: relative;
+  margin-top: 6px;
+  height: 2px;
+  background: color-mix(in srgb, var(--strong) 7%, transparent);
+}
+.mbar i { position: absolute; inset: 0 auto 0 0; display: block; }
+.mrow.claude .mbar i { background: var(--claude); }
+.mrow.codex .mbar i { background: var(--codex); }
+.mbar.off { display: none; }
+
+#ledger-empty { padding: 18px 14px; font-size: 10.5px; line-height: 1.6; color: var(--faint); }
+
+#ledger > footer {
+  height: 30px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--faint);
+  font: 9px/1 var(--mono);
+}
+#link-state { display: flex; align-items: center; gap: 5px; }
+#link-state i { width: 4px; height: 4px; border-radius: 50%; background: var(--dot); }
+#link-state.live { color: var(--codex); }
+#link-state.live i { background: var(--codex); }
+
+/* collapsed: avatar strip */
+#ledger.min { width: 46px; min-width: 46px; }
+#ledger.min > header { padding: 0; justify-content: center; }
+#ledger.min > header span.label, #ledger.min #new-pane, #ledger.min > footer { display: none; }
+#ledger.min > header .grow { display: none; }
+#ledger.min .mrow { flex-direction: column; align-items: center; gap: 0; padding: 8px 0; border-bottom: 0; }
+#ledger.min .mbody { display: none; }
+#ledger.min .mrow .mbar2 {
+  width: 24px;
+  height: 2px;
+  margin-top: 4px;
+  position: relative;
+  background: color-mix(in srgb, var(--strong) 7%, transparent);
+}
+#ledger.min .mrow .mbar2 i { position: absolute; inset: 0 auto 0 0; display: block; }
+#ledger.min .mrow.claude .mbar2 i { background: var(--claude); }
+#ledger.min .mrow.codex .mbar2 i { background: var(--codex); }
+.mbar2 { display: none; }
+#ledger.min .mbar2 { display: block; }
+#ledger.min .mbar2.off { display: none; }
+
+/* --------------------------------------------------- active workspace ---- */
+#active-workspace {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-work);
+}
+
+#workspace-head {
+  height: 42px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+#workspace-title {
+  max-width: 42vw;
+  margin: 0;
+  overflow: hidden;
+  color: var(--strong);
+  font-family: var(--display);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-title-line { display: flex; align-items: baseline; gap: 8px; }
+#workspace-id { color: var(--faint); font: 8.5px/1 var(--mono); }
+#workspace-meta { margin-top: 2px; color: var(--faint); font: 8.5px/1 var(--mono); }
+.workspace-actions { display: flex; align-items: center; gap: 2px; }
+.workspace-actions button {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.workspace-actions button:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+.workspace-actions button:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+.workspace-actions svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ------------------------------------------------------- pane field ---- */
+#pane-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  background: transparent;
+}
+.tab-field {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.tab-field.hidden { display: none; }
+
+.split {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.split.h { flex-direction: row; }
+.split.v { flex-direction: column; }
+.divider { z-index: 8; flex: 0 0 7px; margin: -3px; background: transparent; }
+.split.h > .divider { cursor: col-resize; }
+.split.v > .divider { cursor: row-resize; }
+.divider:hover, .divider.dragging { background: color-mix(in srgb, var(--signal) 25%, transparent); }
+
+.pane {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--glass-pane);
+  border: 1px solid transparent;
+}
+/* Provider identity lives in the cursor, ticks and strips — never in the
+   terminal's wall color (a tinted well read as a rendering bug, and stuck
+   around after the CLI exited). */
+.pane.focused { border-color: color-mix(in srgb, var(--signal) 12%, transparent); }
+/* dim unfocused panes when a tab holds a split */
+.split .pane:not(.focused) { filter: brightness(0.86) saturate(0.92); }
+
+.pane-head {
+  height: 26px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 11px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--glass-pane-head);
+  color: var(--faint);
+  user-select: none;
+}
+/* single pane in a tab: its head is redundant with the workspace header */
+.tab-field > .pane > .pane-head { display: none; }
+.pane-head .id-tick { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
+.pane-head.claude .id-tick { background: var(--claude); }
+.pane-head.codex .id-tick { background: var(--codex); }
+.pane-head .pane-kicker { font: 8.5px/1 var(--mono); text-transform: uppercase; }
+.pane-head .title {
+  overflow: hidden;
+  color: var(--muted);
+  font: 10px/1 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-head .actions { display: flex; margin-left: auto; }
+.pane-head button {
+  all: unset;
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pane-head button:hover { background: var(--raised); color: var(--text); }
+.pane-head button:focus-visible { outline: 1px solid var(--signal); }
+
+.pane-term {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 4px 8px 14px;
+  background: transparent;
+  box-shadow: inset 0 14px 20px -18px var(--well-shade);
+}
+.pane-term .xterm { height: 100%; }
+/* Suppress an agent TUI's parked hardware cursor. Codex uses turn state plus
+   the actual cwd-line cursor position; Claude retains its existing fallback. */
+.pane.cursor-quiet .xterm-cursor {
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* "Go to latest message" — absolutely positioned so it can never resize the
+   terminal; it sits just above the pane's status strip, Warp-style. */
+.jump-bottom {
+  position: absolute;
+  right: 18px;
+  bottom: 39px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass-instrument);
+  backdrop-filter: blur(8px);
+  color: var(--soft);
+  font: 500 9.5px/1 var(--mono);
+  cursor: pointer;
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.9);
+}
+.jump-bottom:hover { color: var(--strong); border-color: color-mix(in srgb, var(--signal) 35%, transparent); }
+.jump-bottom:focus-visible { outline: 1px solid var(--signal); }
+.jump-bottom.hidden { display: none; }
+.pane.claude .jump-bottom:hover { border-color: color-mix(in srgb, var(--claude) 40%, transparent); }
+.pane.codex .jump-bottom:hover { border-color: color-mix(in srgb, var(--codex) 40%, transparent); }
+
+.pane-term .xterm-viewport::-webkit-scrollbar { width: 6px; }
+.pane-term .xterm-viewport::-webkit-scrollbar-thumb { background: var(--scroll-thumb); }
+.pane-term .xterm-viewport::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+
+/* Per-pane status strip: permanently mounted (mounting it late resizes
+   ConPTY mid-boot — see HANDOFF-2026-08-14-frontend gotchas). */
+.pane-status {
+  height: 27px;
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--glass-instrument);
+  color: var(--faint);
+  font: 9px/1 var(--mono);
+  white-space: nowrap;
+  user-select: none;
+}
+.pane-status .tick { width: 4px; height: 4px; flex: none; border-radius: 50%; background: #465158; }
+.pane-status.claude { background: var(--claude-strip-bg); border-top-color: var(--claude-strip-line); }
+.pane-status.claude .tick { background: var(--claude); }
+.pane-status.claude .model { color: var(--claude-strip-text); }
+.pane-status.codex { background: var(--codex-strip-bg); border-top-color: var(--codex-strip-line); }
+.pane-status.codex .tick { background: var(--codex); }
+.pane-status.codex .model { color: var(--codex-strip-text); }
+.pane-status .model { overflow: hidden; color: var(--soft); text-overflow: ellipsis; }
+.pane-status .status-muted, .pane-status .plan { color: var(--faint); }
+.pane-status .plan b { color: var(--soft); font-weight: 400; }
+.pane-status .trace-wrap { width: 120px; display: flex; align-items: center; gap: 7px; }
+.pane-status .trace-wrap .trace { flex: 1; }
+
+.trace { position: relative; flex: 1; height: 3px; overflow: hidden; background: var(--trace-bg); }
+.trace .fill { position: absolute; inset: 0 auto 0 0; background: var(--signal); }
+.claude .trace .fill, .seg.claude .trace .fill { background: var(--claude); }
+.codex .trace .fill, .seg.codex .trace .fill { background: var(--codex); }
+.trace.counted .fill {
+  background: repeating-linear-gradient(90deg, currentColor 0 11px, transparent 11px 15px);
+  color: var(--codex);
+}
+.claude .trace.counted .fill { color: var(--claude); }
+.trace.unknown { height: 3px; border-top: 1px dotted var(--faint); background: transparent; }
+.pct {
+  min-width: 34px;
+  color: var(--pct-text);
+  font: 9px/1 var(--mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pct.warn { color: var(--warn); }
+.pct.hot { color: var(--danger); }
+
+/* -------------------------------------------------------- usage pool ---- */
+#pool {
+  height: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--line);
+  background: var(--glass-instrument);
+  color: var(--faint);
+  font: 9px/1 var(--mono);
+  user-select: none;
+}
+#pool .pool-label {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--line-soft);
+}
+.seg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-right: 1px solid var(--line-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+.seg .tick { width: 4px; height: 4px; border-radius: 50%; background: #465158; flex: none; }
+.seg.claude .tick { background: var(--claude); }
+.seg.codex .tick { background: var(--codex); }
+.seg .sname { color: var(--soft); overflow: hidden; text-overflow: ellipsis; }
+.seg .trace { flex: none; width: 54px; }
+.seg .pv { color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg .pv2 { color: var(--faint); font-variant-numeric: tabular-nums; }
+.seg .pv2::before { content: "·"; margin-right: 7px; color: color-mix(in srgb, var(--strong) 14%, transparent); }
+#pool .pool-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 13px;
+}
+#relay-state { display: flex; align-items: center; gap: 5px; }
+#relay-state i { width: 4px; height: 4px; border-radius: 50%; background: var(--dot); }
+#relay-state.live { color: var(--codex); }
+#relay-state.live i { background: var(--codex); }
+#pool .hints { color: var(--faint); }
+
+/* -------------------------------------------------------- search bar ---- */
+#search-bar {
+  position: absolute;
+  z-index: 30;
+  top: 48px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--glass-float);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+}
+#search-bar.hidden { display: none; }
+#search-input {
+  width: 200px;
+  padding: 4px 8px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--strong);
+  font: 500 11.5px/1.2 var(--ui);
+}
+#search-input::placeholder { color: var(--faint); }
+#search-bar button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: 400 13px/1 var(--mono);
+  cursor: pointer;
+}
+#search-bar button:hover { color: var(--text); background: color-mix(in srgb, var(--strong) 6%, transparent); }
+#search-bar button:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+
+/* ---------------------------------------------------- command palette ---- */
+#palette {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 90px;
+  background: var(--overlay);
+}
+#palette.hidden { display: none; }
+#palette-panel {
+  width: 540px;
+  max-width: 90vw;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--glass-float);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+#palette-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--strong);
+  font: 500 13.5px/1.2 var(--ui);
+}
+#palette-input::placeholder { color: var(--faint); }
+#palette-list {
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line-soft);
+  padding: 6px;
+}
+#palette-list::-webkit-scrollbar { width: 6px; }
+#palette-list::-webkit-scrollbar-thumb { background: var(--scroll-thumb); }
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.prow .tick { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); flex: none; }
+.prow.claude .tick { background: var(--claude); }
+.prow.codex .tick { background: var(--codex); }
+.prow .hint { margin-left: auto; color: var(--faint); font: 9.5px/1 var(--mono); white-space: nowrap; }
+.prow.sel { background: color-mix(in srgb, var(--signal) 12%, transparent); color: var(--strong); }
+#palette-empty { padding: 14px; color: var(--faint); font-size: 12px; }
+
+/* ============================================================ themes ====
+   Each block overrides tokens only — colors, type, material. Never geometry:
+   a theme switch must not move a single ConPTY cell. The matching xterm
+   palettes live in themes.js. Provider color stays off the terminal wall in
+   every identity (ruling). */
+
+/* 1 · Still Air — modern minimalist. One graphite surface, focus is light. */
+body[data-theme="still-air"] {
+  --void: #141517; --shell: #141517; --well: #101113; --raised: #1c1d20;
+  --line: rgba(255, 255, 255, 0.06); --line-soft: rgba(255, 255, 255, 0.04);
+  --text: #c9cccf; --strong: #ffffff; --muted: #8f9296; --faint: #5d6165;
+  --signal: #ffffff; --claude: #a08774; --codex: #6f958a;
+  --warn: #bfae8e; --danger: #c07f74; --green: #8fa792;
+  --base-rgb: 20, 21, 23;
+  --atmo: none;
+  --glass-strip: rgba(20, 21, 23, 0.55);
+  --glass-rail: rgba(20, 21, 23, 0.45);
+  --glass-work: rgba(16, 17, 19, 0.25);
+  --glass-pane: rgba(16, 17, 19, 0.35);
+  --glass-pane-head: rgba(20, 21, 23, 0.5);
+  --glass-instrument: rgba(20, 21, 23, 0.5);
+  --glass-float: rgba(22, 23, 25, 0.94);
+  --tab-active: rgba(16, 17, 19, 0.92);
+  --overlay: rgba(8, 8, 9, 0.4);
+  --trace-bg: #26272a; --scroll-thumb: #26272a; --scroll-thumb-hover: #313236;
+  --dot: #4a4d51; --soft: #b4b7ba; --pct-text: #8f9296;
+  --ava-bg: #1e2023; --ava-fg: #9b9ea2;
+  --ava-claude-bg: #262019; --ava-claude-fg: #c4a68d;
+  --ava-codex-bg: #1b2421; --ava-codex-fg: #94b5aa;
+  --claude-strip-bg: rgba(160, 135, 116, 0.06); --claude-strip-line: rgba(160, 135, 116, 0.14);
+  --claude-strip-text: #c4b0a0;
+  --codex-strip-bg: rgba(111, 149, 138, 0.06); --codex-strip-line: rgba(111, 149, 138, 0.14);
+  --codex-strip-text: #a4c0b7;
+}
+
+/* 2 · The Study — oxblood walls, engraved gold, serif small caps. */
+body[data-theme="study"] {
+  --void: #221418; --shell: #261619; --well: #1b0f12; --raised: #35201f;
+  --line: rgba(201, 163, 95, 0.22); --line-soft: rgba(201, 163, 95, 0.12);
+  --text: #e6d9c2; --strong: #f6ecd9; --muted: #b39d80; --faint: #87715c;
+  --signal: #c9a35f; --claude: #b5764d; --codex: #6d8f6a;
+  --warn: #c9a35f; --danger: #c26a52; --green: #6d8f6a;
+  --display: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --base-rgb: 34, 20, 24;
+  --atmo:
+    radial-gradient(900px 600px at 12% -10%, rgba(201, 163, 95, 0.05), transparent 60%),
+    radial-gradient(1100px 700px at 104% 114%, rgba(181, 118, 77, 0.05), transparent 60%);
+  --glass-strip: rgba(38, 22, 25, 0.6);
+  --glass-rail: rgba(38, 22, 25, 0.45);
+  --glass-work: rgba(27, 15, 18, 0.25);
+  --glass-pane: rgba(27, 15, 18, 0.35);
+  --glass-pane-head: rgba(38, 21, 24, 0.5);
+  --glass-instrument: rgba(36, 20, 23, 0.55);
+  --glass-float: rgba(41, 24, 27, 0.94);
+  --tab-active: rgba(27, 15, 18, 0.92);
+  --overlay: rgba(18, 10, 12, 0.4);
+  --trace-bg: rgba(201, 163, 95, 0.15); --scroll-thumb: #3d2a26; --scroll-thumb-hover: #4a332e;
+  --dot: #6b573f; --soft: #d3c3a6; --pct-text: #b39d80;
+  --ava-bg: #33201f; --ava-fg: #c4ad8d;
+  --ava-claude-bg: #3c2418; --ava-claude-fg: #d99e75;
+  --ava-codex-bg: #253023; --ava-codex-fg: #97b593;
+  --claude-strip-bg: rgba(181, 118, 77, 0.08); --claude-strip-line: rgba(181, 118, 77, 0.2);
+  --claude-strip-text: #d9b394;
+  --codex-strip-bg: rgba(109, 143, 106, 0.08); --codex-strip-line: rgba(109, 143, 106, 0.18);
+  --codex-strip-text: #a9c2a1;
+}
+
+/* 3 · Manifesto — print-shop propaganda: raw black, one vermilion, heavy rules. */
+body[data-theme="manifesto"] {
+  --void: #0c0c0c; --shell: #0c0c0c; --well: #080808; --raised: #161616;
+  --line: rgba(242, 239, 233, 0.16); --line-soft: rgba(242, 239, 233, 0.08);
+  --text: #e9e5dd; --strong: #f7f4ee; --muted: #9c978e; --faint: #6b675f;
+  --signal: #e63b2e; --claude: #c96b4e; --codex: #5e9c8a;
+  --warn: #c8a656; --danger: #e63b2e; --green: #5e9c8a;
+  --display: "Arial Black", "Segoe UI", sans-serif;
+  --base-rgb: 12, 12, 12;
+  --atmo: none;
+  --glass-strip: rgba(12, 12, 12, 0.65);
+  --glass-rail: rgba(16, 16, 16, 0.5);
+  --glass-work: rgba(8, 8, 8, 0.3);
+  --glass-pane: rgba(8, 8, 8, 0.35);
+  --glass-pane-head: rgba(14, 14, 14, 0.55);
+  --glass-instrument: rgba(14, 14, 14, 0.55);
+  --glass-float: rgba(16, 16, 16, 0.95);
+  --tab-active: rgba(8, 8, 8, 0.94);
+  --overlay: rgba(4, 4, 4, 0.45);
+  --trace-bg: rgba(242, 239, 233, 0.12); --scroll-thumb: #262626; --scroll-thumb-hover: #313131;
+  --dot: #54514b; --soft: #c6c1b8; --pct-text: #9c978e;
+  --ava-bg: #1a1a1a; --ava-fg: #a5a099;
+  --ava-claude-bg: #24170f; --ava-claude-fg: #d69377;
+  --ava-codex-bg: #12211d; --ava-codex-fg: #8ec2b3;
+  --claude-strip-bg: rgba(201, 107, 78, 0.07); --claude-strip-line: rgba(201, 107, 78, 0.2);
+  --claude-strip-text: #d9a68f;
+  --codex-strip-bg: rgba(94, 156, 138, 0.07); --codex-strip-line: rgba(94, 156, 138, 0.18);
+  --codex-strip-text: #9ecabc;
+}
+
+/* 4 · Meridian — utopian light hardware, dark-pine screens, one dawn line. */
+body[data-theme="meridian"] {
+  --void: #e6ecea; --shell: #f6f9f8; --well: #0e3230; --raised: #e8f1ee;
+  --line: rgba(23, 58, 55, 0.12); --line-soft: rgba(23, 58, 55, 0.07);
+  --text: #2c4643; --strong: #14302d; --muted: #5f7a76; --faint: #8aa19d;
+  --signal: #1e9e8a; --claude: #e8875f; --codex: #2f9e8f;
+  --warn: #b68a3a; --danger: #c85a48; --green: #2f9e8f;
+  --display: "Bahnschrift", "Segoe UI", sans-serif;
+  --base-rgb: 230, 236, 234;
+  --base-alpha: 0.93;
+  --atmo:
+    radial-gradient(900px 600px at 10% -10%, rgba(30, 158, 138, 0.06), transparent 62%),
+    radial-gradient(1100px 700px at 106% 116%, rgba(255, 176, 138, 0.08), transparent 62%);
+  --glass-strip: rgba(246, 249, 248, 0.6);
+  --glass-rail: rgba(246, 249, 248, 0.5);
+  --glass-work: rgba(232, 241, 238, 0.3);
+  --glass-pane: rgba(14, 50, 48, 0.92);
+  --glass-pane-head: rgba(240, 246, 244, 0.75);
+  --glass-instrument: rgba(246, 249, 248, 0.6);
+  --glass-float: rgba(248, 251, 250, 0.95);
+  --tab-active: rgba(255, 255, 255, 0.85);
+  --overlay: rgba(20, 48, 45, 0.25);
+  --well-shade: rgba(0, 0, 0, 0.5);
+  --trace-bg: rgba(23, 58, 55, 0.12); --scroll-thumb: #c3d4cf; --scroll-thumb-hover: #afc6c0;
+  --dot: #9db4b0; --soft: #3d5a56; --pct-text: #5f7a76;
+  --ava-bg: #e2eeeb; --ava-fg: #5f7a76;
+  --ava-claude-bg: #fde9df; --ava-claude-fg: #d06a3e;
+  --ava-codex-bg: #ddf1ed; --ava-codex-fg: #1e8474;
+  --claude-strip-bg: rgba(232, 135, 95, 0.1); --claude-strip-line: rgba(232, 135, 95, 0.28);
+  --claude-strip-text: #b05a33;
+  --codex-strip-bg: rgba(47, 158, 143, 0.1); --codex-strip-line: rgba(47, 158, 143, 0.26);
+  --codex-strip-text: #1c7e68;
+}
+
+/* Meridian's signature: the one gradient in the app, over the strip's seam. */
+body[data-theme="meridian"] #strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #1e9e8a, #7fd4c1 55%, #ffb08a);
+}
+
+/* 5 · Ledger Paper — a printed instrument: paper, ink, red margin rules. */
+body[data-theme="paper"] {
+  --void: #faf9f5; --shell: #faf9f5; --well: #f6f4ee; --raised: #efece2;
+  --line: #d9d4c5; --line-soft: #e6e2d5;
+  --text: #2b2822; --strong: #17140f; --muted: #6d675c; --faint: #98917f;
+  --signal: #a33327; --claude: #9c5a38; --codex: #4a6d5f;
+  --warn: #8a6a25; --danger: #a33327; --green: #4a6d5f;
+  --display: Georgia, "Palatino Linotype", serif;
+  --base-rgb: 250, 249, 245;
+  --base-alpha: 0.96;
+  --atmo: none;
+  --glass-strip: rgba(250, 249, 245, 0.7);
+  --glass-rail: rgba(250, 249, 245, 0.6);
+  --glass-work: rgba(246, 244, 238, 0.4);
+  --glass-pane: rgba(246, 244, 238, 0.85);
+  --glass-pane-head: rgba(244, 242, 234, 0.8);
+  --glass-instrument: rgba(244, 242, 234, 0.75);
+  --glass-float: rgba(250, 249, 245, 0.97);
+  --tab-active: rgba(246, 244, 238, 0.95);
+  --overlay: rgba(60, 55, 45, 0.2);
+  --well-shade: rgba(60, 55, 45, 0.18);
+  --trace-bg: #e6e2d5; --scroll-thumb: #d3cdbc; --scroll-thumb-hover: #c4bda9;
+  --dot: #b0a890; --soft: #4a453a; --pct-text: #6d675c;
+  --ava-bg: #efece2; --ava-fg: #6d675c;
+  --ava-claude-bg: #f0e2d6; --ava-claude-fg: #9c5a38;
+  --ava-codex-bg: #e2eae4; --ava-codex-fg: #4a6d5f;
+  --claude-strip-bg: rgba(156, 90, 56, 0.07); --claude-strip-line: rgba(156, 90, 56, 0.24);
+  --claude-strip-text: #7e4527;
+  --codex-strip-bg: rgba(74, 109, 95, 0.07); --codex-strip-line: rgba(74, 109, 95, 0.22);
+  --codex-strip-text: #38584a;
+}
+
+/* 6 · The Matrix — phosphor code in a black-glass construct. The animated
+   field lives behind the pane material, so terminal text stays quiet. */
+body[data-theme="matrix"] {
+  --void: #020904; --shell: #061109; --well: #020804; --raised: #0c1b0e;
+  --line: rgba(114, 255, 98, 0.15); --line-soft: rgba(114, 255, 98, 0.08);
+  --text: #a7dba3; --strong: #efffed; --muted: #72a875; --faint: #426a47;
+  --signal: #72ff62; --claude: #d6b86f; --codex: #72ff62;
+  --warn: #d8dc72; --danger: #ff6b73; --green: #4ee45f;
+  --base-rgb: 2, 9, 4;
+  --base-alpha: 0.94;
+  --atmo:
+    linear-gradient(180deg, transparent 0%, rgba(114, 255, 98, 0.18) 48%, transparent 54%),
+    repeating-linear-gradient(90deg, rgba(114, 255, 98, 0.07) 0 1px, transparent 1px 19px),
+    repeating-linear-gradient(0deg, transparent 0 13px, rgba(114, 255, 98, 0.045) 13px 14px);
+  --glass-strip: rgba(4, 14, 7, 0.72);
+  --glass-rail: rgba(4, 15, 7, 0.6);
+  --glass-work: rgba(1, 7, 3, 0.4);
+  --glass-pane: rgba(2, 8, 4, 0.86);
+  --glass-pane-head: rgba(5, 16, 8, 0.78);
+  --glass-instrument: rgba(4, 14, 7, 0.78);
+  --glass-float: rgba(4, 15, 7, 0.97);
+  --tab-active: rgba(2, 8, 4, 0.96);
+  --overlay: rgba(0, 4, 1, 0.5);
+  --well-shade: rgba(0, 0, 0, 0.95);
+  --trace-bg: #123217; --scroll-thumb: #17421e; --scroll-thumb-hover: #205b28;
+  --dot: #285c2e; --soft: #a7dba3; --pct-text: #72a875;
+  --ava-bg: #0a1c0d; --ava-fg: #75a979;
+  --ava-claude-bg: #2b2612; --ava-claude-fg: #dbc57f;
+  --ava-codex-bg: #103416; --ava-codex-fg: #8dff7d;
+  --claude-strip-bg: rgba(214, 184, 111, 0.07); --claude-strip-line: rgba(214, 184, 111, 0.2);
+  --claude-strip-text: #dbc988;
+  --codex-strip-bg: rgba(114, 255, 98, 0.07); --codex-strip-line: rgba(114, 255, 98, 0.2);
+  --codex-strip-text: #9aff8e;
+}
+
+body[data-theme="matrix"]::before {
+  background-size: 100% 360px, 100% 100%, 100% 100%;
+  opacity: 0.5;
+}
+
+body[data-theme="matrix"] .tab.active::after {
+  box-shadow: 0 0 12px rgba(114, 255, 98, 0.7);
+}
+
+/* 7 · Amber Terminal — a calibrated maintenance console, not sepia chrome. */
+body[data-theme="amber"] {
+  --void: #120b02; --shell: #160e04; --well: #0d0802; --raised: #241705;
+  --line: rgba(255, 189, 69, 0.16); --line-soft: rgba(255, 189, 69, 0.08);
+  --text: #d7af66; --strong: #fff0c8; --muted: #9f7b3d; --faint: #6b5028;
+  --signal: #ffbd45; --claude: #e98b45; --codex: #94c798;
+  --warn: #e8b85e; --danger: #e66f45; --green: #8fb36a;
+  --base-rgb: 18, 11, 2;
+  --base-alpha: 0.95;
+  --atmo:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 189, 69, 0.025) 3px 4px),
+    radial-gradient(900px 620px at 50% 45%, rgba(255, 161, 31, 0.09), transparent 68%);
+  --glass-strip: rgba(21, 13, 3, 0.72);
+  --glass-rail: rgba(20, 12, 3, 0.58);
+  --glass-work: rgba(12, 7, 1, 0.38);
+  --glass-pane: rgba(13, 8, 2, 0.82);
+  --glass-pane-head: rgba(22, 14, 4, 0.74);
+  --glass-instrument: rgba(20, 12, 3, 0.76);
+  --glass-float: rgba(24, 15, 4, 0.97);
+  --tab-active: rgba(13, 8, 2, 0.95);
+  --overlay: rgba(7, 4, 0, 0.5);
+  --well-shade: rgba(0, 0, 0, 0.94);
+  --trace-bg: #38250a; --scroll-thumb: #48300e; --scroll-thumb-hover: #5d4015;
+  --dot: #5e461f; --soft: #d8b46e; --pct-text: #9f7b3d;
+  --ava-bg: #251804; --ava-fg: #a9813f;
+  --ava-claude-bg: #321708; --ava-claude-fg: #eea26c;
+  --ava-codex-bg: #182719; --ava-codex-fg: #a8d0aa;
+  --claude-strip-bg: rgba(233, 139, 69, 0.07); --claude-strip-line: rgba(233, 139, 69, 0.2);
+  --claude-strip-text: #eda777;
+  --codex-strip-bg: rgba(148, 199, 152, 0.06); --codex-strip-line: rgba(148, 199, 152, 0.18);
+  --codex-strip-text: #afd2b1;
+}
+
+/* 8 · Blueprint — a working drawing rendered in cobalt and drafting ink. */
+body[data-theme="blueprint"] {
+  --void: #082b4b; --shell: #0a3154; --well: #06243e; --raised: #104064;
+  --line: rgba(174, 225, 255, 0.19); --line-soft: rgba(174, 225, 255, 0.1);
+  --text: #c6eaff; --strong: #ffffff; --muted: #8bb9d3; --faint: #5d89a8;
+  --signal: #8edcff; --claude: #ffb17e; --codex: #8edcff;
+  --warn: #e8c978; --danger: #ff8f91; --green: #83d7bd;
+  --base-rgb: 8, 43, 75;
+  --base-alpha: 0.93;
+  --atmo:
+    repeating-linear-gradient(90deg, rgba(174, 225, 255, 0.04) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(0deg, rgba(174, 225, 255, 0.04) 0 1px, transparent 1px 32px),
+    radial-gradient(900px 620px at 90% -10%, rgba(142, 220, 255, 0.11), transparent 62%);
+  --glass-strip: rgba(9, 47, 80, 0.7);
+  --glass-rail: rgba(8, 43, 75, 0.56);
+  --glass-work: rgba(5, 31, 54, 0.34);
+  --glass-pane: rgba(6, 36, 62, 0.82);
+  --glass-pane-head: rgba(9, 47, 80, 0.74);
+  --glass-instrument: rgba(8, 43, 75, 0.76);
+  --glass-float: rgba(9, 45, 76, 0.97);
+  --tab-active: rgba(6, 36, 62, 0.95);
+  --overlay: rgba(3, 20, 35, 0.48);
+  --well-shade: rgba(0, 8, 16, 0.78);
+  --trace-bg: #174c70; --scroll-thumb: #1d567c; --scroll-thumb-hover: #276c96;
+  --dot: #467998; --soft: #c6eaff; --pct-text: #8bb9d3;
+  --ava-bg: #103c60; --ava-fg: #96c1d8;
+  --ava-claude-bg: #543323; --ava-claude-fg: #ffc09a;
+  --ava-codex-bg: #144b62; --ava-codex-fg: #a4efff;
+  --claude-strip-bg: rgba(255, 177, 126, 0.08); --claude-strip-line: rgba(255, 177, 126, 0.23);
+  --claude-strip-text: #ffc29d;
+  --codex-strip-bg: rgba(142, 220, 255, 0.08); --codex-strip-line: rgba(142, 220, 255, 0.22);
+  --codex-strip-text: #b4e8ff;
+}
+
+/* 9 · Sakura Dusk — smoky plum and lacquer signal, softened by a dusk bloom. */
+body[data-theme="sakura-dusk"] {
+  --void: #1b111d; --shell: #211522; --well: #160d19; --raised: #302033;
+  --line: rgba(255, 177, 199, 0.14); --line-soft: rgba(255, 177, 199, 0.07);
+  --text: #eadce7; --strong: #fff6fd; --muted: #aa91a7; --faint: #765f75;
+  --signal: #ff7898; --claude: #ef8a68; --codex: #79c5b3;
+  --warn: #d7b36f; --danger: #ef7180; --green: #78b99a;
+  --base-rgb: 27, 17, 29;
+  --base-alpha: 0.92;
+  --atmo:
+    radial-gradient(840px 560px at 12% -12%, rgba(255, 120, 152, 0.12), transparent 62%),
+    radial-gradient(980px 660px at 104% 110%, rgba(121, 197, 179, 0.09), transparent 64%);
+  --glass-strip: rgba(32, 20, 34, 0.66);
+  --glass-rail: rgba(30, 18, 32, 0.52);
+  --glass-work: rgba(20, 12, 23, 0.3);
+  --glass-pane: rgba(22, 13, 25, 0.74);
+  --glass-pane-head: rgba(32, 20, 35, 0.68);
+  --glass-instrument: rgba(30, 18, 33, 0.7);
+  --glass-float: rgba(34, 21, 37, 0.96);
+  --tab-active: rgba(22, 13, 25, 0.94);
+  --overlay: rgba(12, 7, 14, 0.46);
+  --well-shade: rgba(0, 0, 0, 0.78);
+  --trace-bg: #3c2840; --scroll-thumb: #46304a; --scroll-thumb-hover: #593c5e;
+  --dot: #614c60; --soft: #d8c8d5; --pct-text: #aa91a7;
+  --ava-bg: #302033; --ava-fg: #b49cb1;
+  --ava-claude-bg: #45251f; --ava-claude-fg: #f0a184;
+  --ava-codex-bg: #203933; --ava-codex-fg: #9bd5c7;
+  --claude-strip-bg: rgba(239, 138, 104, 0.07); --claude-strip-line: rgba(239, 138, 104, 0.2);
+  --claude-strip-text: #f0aa92;
+  --codex-strip-bg: rgba(121, 197, 179, 0.07); --codex-strip-line: rgba(121, 197, 179, 0.18);
+  --codex-strip-text: #a3d9cc;
+}
+
+@media (max-width: 900px) {
+  #pool .hints { display: none; }
+  #ledger:not(.min) { width: 190px; min-width: 190px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tab, .mrow, .menu-item, .workspace-actions button, #update-status {
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  }
+  body[data-theme="matrix"]::before {
+    animation: matrix-rain 8s linear infinite;
+  }
+  @keyframes matrix-rain {
+    from { background-position: 0 -360px, 0 0, 0 0; }
+    to { background-position: 0 360px, 19px 0, 0 14px; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
